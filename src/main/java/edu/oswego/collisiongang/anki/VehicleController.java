@@ -9,6 +9,7 @@ import de.adesso.anki.messages.SetSpeedMessage;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class VehicleController implements Runnable {
@@ -36,7 +37,11 @@ public class VehicleController implements Runnable {
                 navigatingIntersection.compareAndSet(false, true);
                 long arrivalTime = System.currentTimeMillis();
                 ego.sendMessage(new SetSpeedMessage(0, 1000));
-                while(System.currentTimeMillis() - arrivalTime < 3000);
+                try {
+                    TimeUnit.SECONDS.sleep(3);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
                 ego.sendMessage(new SetSpeedMessage(300, 1000));
             }
         }
