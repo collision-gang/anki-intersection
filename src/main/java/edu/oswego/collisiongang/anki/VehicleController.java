@@ -48,6 +48,7 @@ public class VehicleController implements Runnable {
                     TimeUnit.SECONDS.sleep(3);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    Thread.currentThread().interrupt();
                 }
                 ego.sendMessage(new SetSpeedMessage(300, 1000));
         }
