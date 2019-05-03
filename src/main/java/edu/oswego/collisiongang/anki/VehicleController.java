@@ -9,13 +9,15 @@ import de.adesso.anki.messages.SetSpeedMessage;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class VehicleController implements Runnable {
     private Vehicle ego;
     private ServerSocket peerServer;
-    private AtomicBoolean arrivedAtIntersection = new AtomicBoolean(false);
+    private CountDownLatch arrivedAtIntersection = new CountDownLatch(1);
     private AtomicBoolean navigatingIntersection = new AtomicBoolean(false);
 
     public VehicleController(Vehicle ego, int port) throws IOException {
@@ -32,9 +34,13 @@ public class VehicleController implements Runnable {
         ego.sendMessage(new SetSpeedMessage(300, 1000));
 
         for (;;) {
-            if (arrivedAtIntersection.get()) {
-                arrivedAtIntersection.compareAndSet(true, false);
-                navigatingIntersection.compareAndSet(false, true);
+            try {
+                arrivedAtIntersection.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            arrivedAtIntersection = new CountDownLatch(1);
+            navigatingIntersection.compareAndSet(false, true);
                 long arrivalTime = System.currentTimeMillis();
                 ego.sendMessage(new SetSpeedMessage(0, 1000));
                 try {
@@ -43,7 +49,6 @@ public class VehicleController implements Runnable {
                     e.printStackTrace();
                 }
                 ego.sendMessage(new SetSpeedMessage(300, 1000));
-            }
         }
     }
 
@@ -52,7 +57,7 @@ public class VehicleController implements Runnable {
         @Override
         public void messageReceived(LocalizationPositionUpdateMessage m) {
             if (!navigatingIntersection.get() && m.getRoadPieceId() == 10) {
-             arrivedAtIntersection.compareAndSet(false, true);
+             arrivedAtIntersection.countDown();
             }
         }
     }
