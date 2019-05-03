@@ -38,6 +38,7 @@ public class VehicleController implements Runnable {
                 arrivedAtIntersection.await();
             } catch (InterruptedException e) {
                 e.printStackTrace();
+                Thread.currentThread().interrupt();
             }
             arrivedAtIntersection = new CountDownLatch(1);
             navigatingIntersection.compareAndSet(false, true);
