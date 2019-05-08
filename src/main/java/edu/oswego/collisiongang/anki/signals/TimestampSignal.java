@@ -4,7 +4,16 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public class TimestampSignal extends Signal {
-    private final byte OP = 69;
+    private final static byte OP = 69;
+
+    public String getAddr() {
+        return addr;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
     private String addr;
     private long timestamp;
 
