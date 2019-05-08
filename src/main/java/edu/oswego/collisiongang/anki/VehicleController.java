@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -20,10 +21,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class VehicleController implements Runnable {
     private Vehicle ego;
     private ServerSocket peerServer;
+    private CountDownLatch start = new CountDownLatch(1);
     private CountDownLatch arrivedAtIntersection = new CountDownLatch(1);
     private CountDownLatch readyToClear = new CountDownLatch(1);
     private AtomicBoolean navigatingIntersection = new AtomicBoolean(false);
-    private Map<String, Socket> peers;
+    private Map<String, Socket> peers = new HashMap<>();
     private AtomicInteger generation = new AtomicInteger(0);
     private AtomicBoolean isMaster = new AtomicBoolean(false);
 
@@ -34,6 +36,12 @@ public class VehicleController implements Runnable {
 
     @Override
     public void run() {
+        try {
+            start.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Thread.currentThread().interrupt();
+        }
         ego.connect();
         ego.sendMessage(new SdkModeMessage());
         ego.addMessageListener(LocalizationPositionUpdateMessage.class, new LocalizationPositionUpdateListener());
@@ -50,6 +58,7 @@ public class VehicleController implements Runnable {
             }
             generation.getAndIncrement();
             arrivedAtIntersection = new CountDownLatch(1);
+            readyToClear = new CountDownLatch(1);
             navigatingIntersection.compareAndSet(false, true);
             long arrivalTime = System.currentTimeMillis();
             ego.sendMessage(new SetSpeedMessage(0, 12500));
@@ -61,15 +70,16 @@ public class VehicleController implements Runnable {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     Thread.currentThread().interrupt();
+                } finally {
+                    if (currentGen == generation.get()) readyToClear.countDown();
                 }
-
-                if (generation.get() == currentGen) readyToClear.countDown();
             });
 
             TimestampSignal arrivalMessage = new TimestampSignal(ego.getAddress(), arrivalTime);
             for(Socket s : peers.values()) {
                 try {
-                    s.getChannel().write(ByteBuffer.wrap(arrivalMessage.getPayload()));
+                    System.out.println(s);
+                    s.getOutputStream().write(arrivalMessage.getPayload());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -81,6 +91,7 @@ public class VehicleController implements Runnable {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();
             }
+            ego.sendMessage(new SetSpeedMessage(400, 12500));
         }
     }
 
@@ -88,6 +99,7 @@ public class VehicleController implements Runnable {
         for (Map.Entry<String, InetSocketAddress> e : peerAddrs.entrySet()) {
             if (!e.getKey().equals(ego.getAddress())) peers.put(e.getKey(), new Socket(e.getValue().getAddress(), e.getValue().getPort()));
         }
+        start.countDown();
     }
 
     class LocalizationPositionUpdateListener implements MessageListener<LocalizationPositionUpdateMessage> {

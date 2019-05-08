@@ -5,6 +5,7 @@ import de.adesso.anki.messages.*;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,13 +25,19 @@ public class App {
 
         List<Vehicle> vehicleList = connector.findVehicles();
         Map<String, InetSocketAddress> peers = new HashMap<>();
+        List<VehicleController> controllerList = new ArrayList<>();
         if (!vehicleList.isEmpty()) {
             System.out.println(vehicleList.size());
             int controllerPort = 5380;
             for (Vehicle v : vehicleList) {
-                ForkJoinPool.commonPool().execute(new VehicleController(v, ++controllerPort));
+                VehicleController vc = new VehicleController(v, ++controllerPort);
+                ForkJoinPool.commonPool().execute(vc);
                 peers.put(v.getAddress(), new InetSocketAddress("localhost", controllerPort));
+                controllerList.add(vc);
             }
+
+            for(VehicleController vc : controllerList)
+                vc.setPeers(peers);
         }
 
         for (Map.Entry<String, InetSocketAddress> e : peers.entrySet()) {
