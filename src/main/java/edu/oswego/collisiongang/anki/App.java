@@ -4,7 +4,10 @@ import de.adesso.anki.*;
 import de.adesso.anki.messages.*;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
 
 /**
@@ -20,12 +23,18 @@ public class App {
         AnkiConnector connector = new AnkiConnector(HOST, PORT);
 
         List<Vehicle> vehicleList = connector.findVehicles();
+        Map<String, InetSocketAddress> peers = new HashMap<>();
         if (!vehicleList.isEmpty()) {
             System.out.println(vehicleList.size());
-            int controllerPort = 4269;
+            int controllerPort = 5380;
             for (Vehicle v : vehicleList) {
-                ForkJoinPool.commonPool().execute(new VehicleController(v, controllerPort++));
+                ForkJoinPool.commonPool().execute(new VehicleController(v, ++controllerPort));
+                peers.put(v.getAddress(), new InetSocketAddress("localhost", controllerPort));
             }
+        }
+
+        for (Map.Entry<String, InetSocketAddress> e : peers.entrySet()) {
+            System.out.printf("%s --- %s\n", e.getKey(), e.getValue());
         }
     }
 }
